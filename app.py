@@ -15,6 +15,10 @@ with st.sidebar:
     st.markdown("1. 粘贴对话，并尽量保留‘对方：’和‘我：’。\n2. 点击开始核验。\n3. 查看触发原句、建议和可选家属核实卡。")
     st.warning("不要输入真实验证码、密码、身份证号或银行卡号。")
     st.caption(f"项目数据：{summary['dialogues']} 段对话、{summary['turns']} 轮、{summary['knowledge']} 张知识卡。")
+    if summary.get("missing_files"):
+        st.error("未找到这些CSV：" + "、".join(summary["missing_files"]) + "。请确认它们与 app.py 同在仓库根目录，或放在 data/ 文件夹中。")
+    else:
+        st.success("对话、轮次和知识卡CSV均已读取。")
 
 text = st.text_area("粘贴对话", height=220, placeholder="对方：我是平台客服，您的会员今天会自动扣费。\n我：需要怎么处理？\n对方：请开启屏幕共享，我指导您取消。")
 if st.button("开始核验", type="primary", use_container_width=True):
@@ -27,12 +31,12 @@ if st.button("开始核验", type="primary", use_container_width=True):
 result = st.session_state.get("result")
 if result:
     st.divider()
+    st.subheader("提醒依据")
     if result["status"] == "high_risk_signal": st.error(f"{result['status_text']}｜{result['max_stage']}：{result['stage_text']}")
     elif result["status"] == "needs_verification": st.warning(f"{result['status_text']}｜{result['max_stage']}：{result['stage_text']}")
     else: st.info(f"{result['status_text']}｜{result['max_stage']}：{result['stage_text']}")
     st.caption("阶段描述的是对话中出现的行为，不代表已确认诈骗；未发现信号也不代表绝对安全。")
 
-    st.subheader("提醒依据")
     if result["evidence"]:
         for item in result["evidence"]:
             label = item["signal"] if item["signal"] != "identity_or_reason_needs_verification" else "身份或理由需要核实"
