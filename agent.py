@@ -8,6 +8,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
+DATA_LOCATIONS = (ROOT, DATA_DIR)
 STAGE_ORDER = {f"S{i}": i for i in range(5)}
 STAGE_LABEL = {"S0": "no_obvious_signal", "S1": "needs_verification", "S2": "needs_verification", "S3": "high_risk_signal", "S4": "high_risk_signal"}
 LABEL_TEXT = {"no_obvious_signal": "暂未发现明显风险信号", "needs_verification": "需要进一步核实", "high_risk_signal": "发现高风险操作信号"}
@@ -33,11 +34,13 @@ USER_NAMES = {"用户", "老人", "我", "家属", "本人"}
 
 
 def read_csv(filename: str) -> list[dict[str, str]]:
-    path = DATA_DIR / filename
-    if not path.exists():
-        return []
-    with path.open("r", encoding="utf-8-sig", newline="") as f:
-        return list(csv.DictReader(f))
+    # Support CSVs uploaded either to the repository root or to data/.
+    for directory in DATA_LOCATIONS:
+        path = directory / filename
+        if path.exists():
+            with path.open("r", encoding="utf-8-sig", newline="") as f:
+                return list(csv.DictReader(f))
+    return []
 
 
 def load_knowledge() -> list[dict[str, str]]:
@@ -47,6 +50,8 @@ def load_knowledge() -> list[dict[str, str]]:
 def load_dataset_summary() -> dict[str, Any]:
     dialogues, turns, knowledge = read_csv("dialogues.csv"), read_csv("turns.csv"), load_knowledge()
     return {"dialogues": len(dialogues), "turns": len(turns), "knowledge": len(knowledge),
+            "missing_files": [name for name in ("dialogues.csv", "turns.csv", "knowledge.csv")
+                              if not any((folder / name).exists() for folder in DATA_LOCATIONS)],
             "split_status": "尚未划分锁定测试集" if any(r.get("split") == "unassigned" for r in dialogues) else "请核对切分字段"}
 
 
@@ -78,19 +83,17 @@ def _active_match(pattern: re.Pattern[str], text: str) -> re.Match[str] | None:
 
 
 def retrieve_knowledge(text: str, signals: set[str], knowledge: list[dict[str, str]], limit: int = 3) -> list[dict[str, str]]:
-    query = set(re.findall(r"退款|理赔|快递|物流|订单|会员|扣费|客服|售后|转账|验证码|屏幕共享", text))
+    query = set(re.findall(r"退款|理赔|快递|物流|订单|会员|扣费|客服|售后|转账|验证码|屏幕共享|安装|链接|二维码|银行卡|密码|保密|家人|家属", text))
     scored = []
     for card in knowledge:
-        if not card.get("url", "").strip():
-            continue
         tags = set(re.split(r"[|,，;；]", card.get("risk_tags", "")))
-        searchable = " ".join(card.get(k, "") for k in ("title", "scenario", "pattern_summary", "official_advice"))
-        score = 4 * len(signals & tags) + sum(term in searchable for term in query)
+        searchable = " ".join(card.get(k, "") for k in ("title", "scenario", "pattern_summary", "official_advice", "fraud_category"))
+        score = 5 * len(signals & tags) + sum(term in searchable for term in query)
         if score:
-            scored.append((score, card))
-    scored.sort(key=lambda x: x[0], reverse=True)
+            scored.append((score, bool(card.get("url", "").strip()), card))
+    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
     output, seen = [], set()
-    for _, card in scored:
+    for _, _, card in scored:
         group = card.get("source_group_id") or card.get("source_id") or card.get("knowledge_id")
         if group not in seen:
             output.append(card)
