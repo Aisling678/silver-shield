@@ -6,16 +6,20 @@ from agent import analyze_dialogue, load_dataset_summary, load_knowledge, SIGNAL
 st.set_page_config(page_title="银龄盾｜对话核验助手", page_icon="🛡️", layout="centered")
 st.markdown("""
 <style>
-  .stApp { background: linear-gradient(180deg, #f5f9ff 0%, #ffffff 340px); }
+  .stApp { background: #eaf6ff; }
   [data-testid="stMainBlockContainer"] { max-width: 900px; padding-top: 2.2rem; padding-bottom: 3rem; }
-  [data-testid="stSidebar"] { background: #f2f7fc; }
-  [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] { color: #334155; }
-  div[data-testid="stTextArea"] textarea { border: 1px solid #cbd9e8; border-radius: 14px; background: #fbfdff; line-height: 1.7; }
+  [data-testid="stSidebar"] { background: #dff1ff; border-right: 1px solid #c9e3f7; }
+  [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] { color: #29445f; font-size: .97rem; line-height: 1.65; }
+  [data-testid="stSidebar"] h2 { color: #1e4f79; }
+  div[data-testid="stTextArea"] textarea { border: 1px solid #bfd8eb; border-radius: 16px; background: #ffffff; line-height: 1.7; box-shadow: 0 4px 16px rgba(43,93,133,.06); }
   div[data-testid="stTextArea"] textarea:focus { border-color: #4c8ed9; box-shadow: 0 0 0 2px rgba(76,142,217,.14); }
   div.stButton > button[kind="primary"] { border: 0; border-radius: 12px; min-height: 3rem; background: linear-gradient(90deg,#2878c8,#3b9aa3); font-weight: 700; box-shadow: 0 5px 14px rgba(40,120,200,.18); }
   div.stButton > button[kind="primary"]:hover { border: 0; background: linear-gradient(90deg,#1f68b2,#2d858e); }
-  div[data-testid="stExpander"] { border: 1px solid #e1eaf3; border-radius: 12px; background: #ffffff; }
+  div[data-testid="stExpander"] { border: 1px solid #d4e4f2; border-radius: 12px; background: #ffffff; }
   div[data-testid="stAlert"] { border-radius: 13px; }
+  [data-testid="stSidebar"] [data-testid="stAlert"] { background: #fff9e8; border: 1px solid #f1dfaa; }
+  [data-testid="stSidebar"] hr { border-color: #c5dfef; }
+  [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] strong { color: #1e4f79; }
   code { color: #245b83 !important; }
 </style>
 <div style="display:flex;align-items:center;gap:16px;margin:0.2rem 0 0.4rem 0;">
@@ -33,25 +37,29 @@ knowledge = load_knowledge()
 with st.sidebar:
     st.header("使用提示")
     st.markdown("""
-**🧭 怎么使用**  
-1. 粘贴对话，尽量保留“对方：”和“我：”。  
-2. 点击“开始核验”。  
-3. 查看建议、提醒依据和相关知识卡。  
-4. 需要时生成家属核实卡，由你决定是否分享。
-
-**📊 风险阶段**  
-• **S0 普通说明**：暂未发现明显风险要求。  
-• **S1 身份待核**：先核实对方身份和业务。  
-• **S2 催促施压**：建议暂停并独立核实。  
-• **S3 外部操作**：如陌生链接、安装软件或共享屏幕。  
-• **S4 资金与认证**：如索要验证码、密码或要求转账。
-
-**🛡️ 页面功能**  
-• 提醒依据：标出可疑原句、风险信号和出现阶段。  
-• 安全建议：针对识别出的风险给出核实步骤。  
-• 相关知识卡：提供反诈资料和来源，便于查证。  
-• 家属协同：生成核实卡，由用户自主决定是否分享。
-""")
+<div style="padding:15px 16px;margin:2px 0 14px;border-radius:16px;background:linear-gradient(135deg,#ffffff,#f2f9ff);border:1px solid #c8e1f4;box-shadow:0 4px 14px rgba(43,93,133,.06);">
+<div style="font-size:1.08rem;font-weight:750;color:#1e4f79;margin-bottom:8px;">🧭 怎么使用</div>
+<div>① 粘贴对话，尽量保留“对方：”和“我：”。</div>
+<div>② 点击“开始核验”。</div>
+<div>③ 查看建议、提醒依据和相关知识卡。</div>
+<div>④ 需要时生成家属核实卡，由你决定是否分享。</div>
+</div>
+<div style="padding:15px 16px;margin:0 0 14px;border-radius:16px;background:linear-gradient(135deg,#ffffff,#f2f9ff);border:1px solid #c8e1f4;box-shadow:0 4px 14px rgba(43,93,133,.06);">
+<div style="font-size:1.08rem;font-weight:750;color:#1e4f79;margin-bottom:8px;">📊 风险阶段</div>
+<div><b>S0 普通说明</b>：暂未发现明显风险要求。</div>
+<div><b>S1 身份待核</b>：先核实对方身份和业务。</div>
+<div><b>S2 催促施压</b>：建议暂停并独立核实。</div>
+<div><b>S3 外部操作</b>：如陌生链接、安装软件或共享屏幕。</div>
+<div><b>S4 资金与认证</b>：如索要验证码、密码或要求转账。</div>
+</div>
+<div style="padding:15px 16px;margin:0 0 14px;border-radius:16px;background:linear-gradient(135deg,#ffffff,#f2f9ff);border:1px solid #c8e1f4;box-shadow:0 4px 14px rgba(43,93,133,.06);">
+<div style="font-size:1.08rem;font-weight:750;color:#1e4f79;margin-bottom:8px;">🛡️ 页面功能</div>
+<div>🔎 提醒依据：标出可疑原句、风险信号和出现阶段。</div>
+<div>✅ 安全建议：提供清晰、可操作的核实步骤。</div>
+<div>📚 相关知识卡：提供反诈资料和来源，方便查证。</div>
+<div>👨‍👩‍👧 家属协同：生成核实卡，由用户自主决定是否分享。</div>
+</div>
+""", unsafe_allow_html=True)
     st.warning("不要输入真实验证码、密码、身份证号或银行卡号。")
 
 st.markdown("### 💬 粘贴需要核实的对话")
@@ -104,10 +112,3 @@ if result:
     if st.session_state.get("show_family"):
         st.text_area("检查后可自行复制给家人；系统不会自动发送", value=result["family_card"], height=140)
 
-with st.expander("数据和系统说明"):
-    st.markdown(f"""
-- 当前加载 {summary['dialogues']} 段对话、{summary['turns']} 轮标注和 {summary['knowledge']} 张知识卡。
-- 当前版本用本地规则识别风险信号，并检索知识卡；没有用这些标签训练模型，也不调用外部大模型。
-- 数据状态：{summary['split_status']}，所以不报告准确率。
-- 输入不会被此程序写入 CSV；请仍避免输入真实敏感信息。
-""")
