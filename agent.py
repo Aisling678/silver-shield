@@ -83,14 +83,49 @@ def _active_match(pattern: re.Pattern[str], text: str) -> re.Match[str] | None:
 
 
 def retrieve_knowledge(text: str, signals: set[str], knowledge: list[dict[str, str]], limit: int = 3) -> list[dict[str, str]]:
-    query = set(re.findall(r"退款|理赔|快递|物流|订单|会员|扣费|客服|售后|转账|验证码|屏幕共享|安装|链接|二维码|银行卡|密码|保密|家人|家属", text))
+    # Detect the user's concrete business context first. A generic word such as
+    # "客服" or "验证码" alone must not pull in an unrelated e-commerce card
+    # when the dialogue is about social security or investment.
+    topic_groups = {
+        "社保/养老补贴": ("社保", "社保卡", "医保", "养老金", "高龄补贴", "养老补贴", "养老补助", "高龄津贴"),
+        "网购/会员退款": ("退款", "退货", "会员", "扣费", "售后", "购物平台", "网购"),
+        "快递/物流理赔": ("快递", "物流", "丢件", "理赔", "包裹"),
+        "投资理财": ("理财", "投资", "高息", "保本", "返利", "养老项目"),
+    }
+    active_topics = {name: terms for name, terms in topic_groups.items() if any(term in text for term in terms)}
+    generic_categories = {"通用风险信号", "通用核实工具"}
     scored = []
     for card in knowledge:
         tags = set(re.split(r"[|,，;；]", card.get("risk_tags", "")))
         searchable = " ".join(card.get(k, "") for k in ("title", "scenario", "pattern_summary", "official_advice", "fraud_category"))
-        score = 5 * len(signals & tags) + sum(term in searchable for term in query)
-        if score:
-            scored.append((score, bool(card.get("url", "").strip()), card))
+        topic_text = " ".join(card.get(k, "") for k in ("title", "scenario"))
+        category = card.get("fraud_category", "")
+        topic_hits = []
+        if active_topics:
+            for topic_name, terms in active_topics.items():
+                # Match the scenario/title, not generic words buried in a long
+                # advice paragraph (e.g. "refund" in an otherwise courier-only card).
+                hits = [term for term in terms if term in topic_text]
+                topic_hits.extend(hits)
+            # In a specific context, require a matching card topic. Generic
+            # reference cards remain eligible when their signal tags overlap.
+            if not topic_hits and not (category in generic_categories and signals & tags):
+                continue
+        tag_hits = signals & tags
+        if active_topics and not topic_hits and category not in generic_categories:
+            continue
+        if topic_hits and tag_hits:
+            score = 6 * len(tag_hits) + 3 * len(set(topic_hits))
+        elif topic_hits:
+            score = 3 * len(set(topic_hits))
+        elif tag_hits:
+            score = 2 * len(tag_hits)
+        else:
+            continue
+        card_with_reason = dict(card)
+        reasons = list(dict.fromkeys(topic_hits[:3] + [SIGNAL_TEXT.get(tag, tag) for tag in sorted(tag_hits)[:2]]))
+        card_with_reason["_match_reason"] = "、".join(reasons)
+        scored.append((score, bool(card.get("url", "").strip()), card_with_reason))
     scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
     output, seen = [], set()
     for _, _, card in scored:
