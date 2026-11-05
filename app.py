@@ -7,11 +7,14 @@ st.set_page_config(page_title="银龄盾｜对话核验助手", page_icon="🛡�
 st.markdown("""
 <style>
   .stApp { background: #eaf6ff; }
-  [data-testid="stMainBlockContainer"] { max-width: 900px; padding-top: 2.2rem; padding-bottom: 3rem; }
+  header[data-testid="stHeader"] { background: #eaf6ff; }
+  [data-testid="stMainBlockContainer"] { max-width: 900px; padding-top: 4.5rem; padding-bottom: 3rem; }
+  [data-testid="stMainBlockContainer"] [data-testid="stMarkdownContainer"] { font-size: 1.08rem; line-height: 1.75; color: #29394b; }
+  [data-testid="stMainBlockContainer"] h2, [data-testid="stMainBlockContainer"] h3 { color: #173f63; letter-spacing: .01em; }
   [data-testid="stSidebar"] { background: #dff1ff; border-right: 1px solid #c9e3f7; }
-  [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] { color: #29445f; font-size: .97rem; line-height: 1.65; }
+  [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] { color: #29445f; font-size: 1.04rem; line-height: 1.8; }
   [data-testid="stSidebar"] h2 { color: #1e4f79; }
-  div[data-testid="stTextArea"] textarea { border: 1px solid #bfd8eb; border-radius: 16px; background: #ffffff; line-height: 1.7; box-shadow: 0 4px 16px rgba(43,93,133,.06); }
+  div[data-testid="stTextArea"] textarea { border: 1px solid #bfd8eb; border-radius: 16px; background: #ffffff; line-height: 1.8; font-size: 1.12rem; box-shadow: 0 4px 16px rgba(43,93,133,.06); }
   div[data-testid="stTextArea"] textarea:focus { border-color: #4c8ed9; box-shadow: 0 0 0 2px rgba(76,142,217,.14); }
   div.stButton > button[kind="primary"] { border: 0; border-radius: 12px; min-height: 3rem; background: linear-gradient(90deg,#2878c8,#3b9aa3); font-weight: 700; box-shadow: 0 5px 14px rgba(40,120,200,.18); }
   div.stButton > button[kind="primary"]:hover { border: 0; background: linear-gradient(90deg,#1f68b2,#2d858e); }
@@ -20,7 +23,8 @@ st.markdown("""
   [data-testid="stSidebar"] [data-testid="stAlert"] { background: #fff9e8; border: 1px solid #f1dfaa; }
   [data-testid="stSidebar"] hr { border-color: #c5dfef; }
   [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] strong { color: #1e4f79; }
-  code { color: #245b83 !important; }
+  code { color: #245b83 !important; font-size: 1rem !important; }
+  div[data-testid="stExpander"] summary { font-size: 1.04rem; font-weight: 650; }
 </style>
 <div style="display:flex;align-items:center;gap:16px;margin:0.2rem 0 0.4rem 0;">
   <div style="width:58px;height:58px;border-radius:18px;background:linear-gradient(145deg,#e6f4ff,#d8e8ff);display:flex;align-items:center;justify-content:center;font-size:36px;box-shadow:0 5px 16px rgba(44,105,180,.14);">🛡️</div>
@@ -89,7 +93,7 @@ if result:
     if result["evidence"]:
         for item in result["evidence"]:
             label = SIGNAL_TEXT.get(item["signal"], "身份或理由需要核实" if item["signal"] == "identity_or_reason_needs_verification" else item["signal"])
-            st.markdown(f"**第 {item['turn_no']} 轮**　·　{item['speaker']}　·　`{label}`")
+            st.markdown(f"**第 {item['turn_no']} 轮**　·　{item['speaker']}　·　**{label}**")
             safe_quote = html.escape(item["quote"])
             st.markdown(f"<div style='padding:14px 17px;margin:6px 0 15px;border-radius:12px;background:#f4f7fb;border-left:4px solid #75a9d4;color:#334155;line-height:1.8;'>{safe_quote}</div>", unsafe_allow_html=True)
     else: st.write("没有提取到明确触发规则的原句。")
@@ -101,8 +105,13 @@ if result:
     if result["knowledge"]:
         for card in result["knowledge"]:
             with st.expander(f"{card.get('title', '核实资料')}｜{card.get('publisher', '来源待核')}"):
-                st.write(card.get("pattern_summary", ""))
-                if card.get("official_advice"): st.write("**资料建议：**" + card["official_advice"])
+                if card.get("_match_reason"):
+                    st.caption("匹配依据：" + card["_match_reason"])
+                summary_text = card.get("pattern_summary", "").replace("**", "")
+                st.markdown(summary_text)
+                if card.get("official_advice"):
+                    advice_text = card["official_advice"].replace("**", "")
+                    st.markdown("**资料建议：** " + advice_text)
                 st.caption(f"发布日期：{card.get('publish_date') or '未注明'}；知识卡编号：{card.get('knowledge_id', '')}")
                 if card.get("url", "").strip(): st.link_button("打开来源网页", card["url"])
     else: st.info("没有找到匹配且带来源链接的知识卡，请自行通过官方渠道核实。")
