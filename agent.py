@@ -102,29 +102,43 @@ def _active_match(pattern: re.Pattern[str], text: str) -> re.Match[str] | None:
 
 
 def retrieve_knowledge(text: str, signals: set[str], knowledge: list[dict[str, str]], limit: int = 3) -> list[dict[str, str]]:
-    # Rank by tag overlap and direct topic-word matches. Keep source-linked cards first,
-    # but permit a card without URL to appear with a clear source-unavailable label.
-    topic_terms = ["退款", "退货", "理赔", "快递", "物流", "包裹", "售后说明", "售后卡", "说明卡", "小卡片", "二维码", "订单", "会员", "扣费", "客服", "售后", "验证码", "屏幕共享", "转账", "养老", "理财"]
-    text_terms = {term for term in topic_terms if term in text}
+    topic_groups = {
+        "社保/养老补贴": ("社保", "社保卡", "医保", "养老金", "高龄补贴", "养老补贴", "养老补助", "高龄津贴"),
+        "网购/会员退款": ("退款", "退货", "会员", "扣费", "售后", "购物平台", "网购"),
+        "快递/物流理赔": ("快递", "物流", "丢件", "理赔", "包裹", "售后卡", "售后说明", "说明卡", "小卡片", "二维码"),
+        "投资理财": ("理财", "投资", "高息", "保本", "返利", "养老项目"),
+    }
+    active_topics = {name: terms for name, terms in topic_groups.items() if any(term in text for term in terms)}
+    generic_categories = {"通用风险信号", "通用核实工具"}
     scored = []
     for card in knowledge:
         tags = {x.strip() for x in re.split(r"[|,，;；]", card.get("risk_tags", "")) if x.strip()}
         searchable = " ".join(card.get(k, "") for k in ("title", "scenario", "pattern_summary", "official_advice", "fraud_category"))
         card_topic = " ".join(card.get(k, "") for k in ("title", "scenario"))
-        tag_score = len(tags & signals)
-        matched_topics = [term for term in text_terms if term in card_topic]
+        tag_hits = tags & signals
+        matched_topics = [term for terms in active_topics.values() for term in terms if term in card_topic]
+        category = card.get("fraud_category", "")
+        if active_topics and not matched_topics and not (category in generic_categories and tag_hits):
+            continue
         # For a parcel insert, only retrieve parcel/customer-service/QR material;
         # a shared keyword such as "验证码" must not pull in unrelated schemes.
         if "unknown_after_sales_insert" in signals:
             parcel_topics = {"快递", "物流", "包裹", "售后", "售后卡", "售后说明", "卡片", "小卡片", "说明卡", "二维码", "退款", "退货", "理赔", "客服"}
             if not any(term in card_topic for term in parcel_topics):
                 continue
-        term_score = 4 * len(matched_topics) + sum(term in searchable for term in text_terms if term not in matched_topics)
-        if tag_score or term_score:
+        if matched_topics and tag_hits:
+            score = 6 * len(tag_hits) + 4 * len(set(matched_topics))
+        elif matched_topics:
+            score = 4 * len(set(matched_topics))
+        elif tag_hits:
+            score = 2 * len(tag_hits)
+        else:
+            continue
+        if score:
             card_with_reason = dict(card)
-            reasons = list(dict.fromkeys(matched_topics[:3] + [SIGNAL_TEXT.get(tag, tag) for tag in sorted(tags & signals)[:2]]))
+            reasons = list(dict.fromkeys(matched_topics[:3] + [SIGNAL_TEXT.get(tag, tag) for tag in sorted(tag_hits)[:2]]))
             card_with_reason["_match_reason"] = "、".join(reasons)
-            scored.append((tag_score * 5 + term_score, bool(card.get("url", "").strip()), card_with_reason))
+            scored.append((score, bool(card.get("url", "").strip()), card_with_reason))
     scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
     output, seen = [], set()
     for _, _, card in scored:
