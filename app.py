@@ -101,8 +101,13 @@ with main_col:
                 banner_text = f"暂未发现明显风险信号｜{result['max_stage']}：{result['stage_text']}"
             st.markdown(f"<div class='risk-banner {banner_class}'>{html.escape(banner_text)}</div>", unsafe_allow_html=True)
             st.caption("阶段描述的是对话中出现的行为，不代表已确认诈骗；未发现信号也不代表绝对安全。")
-            for alert in result.get("context_alerts", []):
-                st.markdown(f"<div style='padding:20px 23px;margin:18px 0 22px;border-radius:18px;background:#fff8e2;border:1px solid #efd27a;color:#6b4b05;font-size:1.18rem;line-height:1.8;'><div style='font-size:1.32rem;font-weight:750;margin-bottom:8px;'>⚠️ 潜在线索提醒：{html.escape(alert['title'])}</div>{html.escape(alert['message'])}</div>", unsafe_allow_html=True)
+            st.subheader("⚠️ 潜在线索提醒")
+            context_alerts = result.get("context_alerts", [])
+            if context_alerts:
+                for alert in context_alerts:
+                    st.markdown(f"<div style='padding:20px 23px;margin:10px 0 22px;border-radius:18px;background:#fff8e2;border:1px solid #efd27a;color:#6b4b05;font-size:1.18rem;line-height:1.8;'><div style='font-size:1.24rem;font-weight:750;margin-bottom:8px;'>{html.escape(alert['title'])}</div>{html.escape(alert['message'])}</div>", unsafe_allow_html=True)
+            else:
+                st.info("本次对话没有匹配到已收录的情景线索；这不代表对话一定安全。")
 
             st.subheader("✅ 现在可以这样做")
             for action in result["actions"]:
